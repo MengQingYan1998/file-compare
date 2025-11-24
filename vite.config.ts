@@ -4,7 +4,7 @@ import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? "/file-compare" : "/",
+  base: process.env.NODE_ENV === 'production' ? "/file-compare/" : "/",
   plugins: [vue()],
   resolve: {
         alias: {
