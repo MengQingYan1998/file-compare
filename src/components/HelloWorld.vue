@@ -11,13 +11,20 @@
       <el-button type="primary">导入Excel文件</el-button>
     </el-upload>
   </div>
-  <el-button type="primary" @click="exportExcel">导出</el-button>
+  <div style="display: flex; align-items: center;">
+    <el-select style="width: 160px;" v-model="selectedSheet" @change="handleSheetChange" placeholder="请选择Sheet">
+      <el-option v-for="sheet in sheetNames" :key="sheet" :value="sheet">{{ sheet }}</el-option>
+    </el-select>
+    <el-button type="primary" @click="exportExcel">导出</el-button>
+
+  </div>
+
   <el-row :gutter="20">
     <el-col :span="18">
       <el-table :data="tableData" max-height="400" :cell-style="getCellStyle" border show-summary style="width: 100%">
         <el-table-column prop="城市" label="城市" width="100" />
-        <el-table-column prop="门店名称" label="门店名称"  />
-        <el-table-column prop="商品名称" label="商品名称" width="180"/>
+        <el-table-column prop="门店名称" label="门店名称"  width="200"/>
+        <el-table-column prop="商品名称" label="商品名称" />
         <el-table-column prop="店品条数" label="店品条数" width="100" />
         <el-table-column prop="购买数量" label="购买数量" width="100" />
       </el-table>
@@ -43,6 +50,9 @@ const tableHeaders = ref([]);
 
 const tableData = ref();
 const realBuyTable = ref()
+const selectedSheet = ref('');
+const sheetNames = ref([]);
+const readSheetResult = ref({});
 // 处理文件导入
 const handleImport = (file) => {
   // 检查文件类型
@@ -54,56 +64,77 @@ const handleImport = (file) => {
 
   const reader = new FileReader();
   reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = read(data, { type: "array" });
-      // 读取第一个sheet页
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      // 转换JSON数据
-      const jsonData = utils.sheet_to_json(worksheet, { header: 1 });
-      // 处理表头
-      tableHeaders.value = jsonData[0];
-      // 处理表格内容（跳过表头）
-      tableData.value = jsonData.slice(1).map((row) => {
-        return tableHeaders.value.reduce((obj, header, index) => {
-          obj[header] = row[index] || "";
-          return obj;
-        }, {});
-      });
-      console.log('output->tableData.value',tableData.value);
-      // 读取第二个sheet页
-      const secondSheetName = workbook.SheetNames[1];
-      const secondWorksheet = workbook.Sheets[secondSheetName];
-      // 转换JSON数据
-      const realBuyJsonData = utils.sheet_to_json(secondWorksheet, { header: 1 });
-      // 处理表头
-      tableHeaders.value = realBuyJsonData[0];
-      // 处理表格内容（跳过表头）
-      realBuyTable.value = realBuyJsonData.slice(1).map((row) => {
-        return tableHeaders.value.reduce((obj, header, index) => {
-          obj[header] = row[index] || "";
-          if(header === '购买数量') {
-            obj[header] = Number(row[index] || 0) / 10;
-          }
-          return obj;
-        }, {});
-      });
-      console.log('output->realBuyTable.value',realBuyTable.value);
-      handleCompareTableData()
-
-
-      ElMessage.success("文件导入成功");
-    } catch (error) {
-      ElMessage.error("文件解析失败: " + error.message);
-    }
+    fileReadFuc(e);
   };
   reader.readAsArrayBuffer(file.raw);
 };
 
-const handleCompareTableData = () => {
-  tableData.value.forEach(item => {
-    const realBuyList = realBuyTable.value.filter(realBuyItem => 
+const fileReadFuc = (e) => {
+  try {
+      let result = {}
+      const data = new Uint8Array(e.target.result);
+      const workbook = read(data, { type: "array" });
+      console.log('output->workbook.SheetNames',workbook.SheetNames);
+      let realBuyIndex = workbook.SheetNames.indexOf(p => p == '购买明细');
+      if (realBuyIndex != -1) {
+        throw new Error('必须添加购买明细Sheet页');
+      }
+      const realBuyWorksheet = workbook.Sheets['购买明细'];
+      const realBuyJsonData = utils.sheet_to_json(realBuyWorksheet, { header: 1 });
+      result['购买明细'] = handleSheetData(realBuyJsonData, '购买明细');
+      let otherSheetNames = workbook.SheetNames.filter(name => name != '购买明细');
+      for (let index = 0; index < otherSheetNames.length; index++) {
+        const el = otherSheetNames[index];
+        const worksheet = workbook.Sheets[el];
+        // 转换JSON数据
+        const jsonData = utils.sheet_to_json(worksheet, { header: 1 });
+        if (el != '购买明细') {
+          sheetNames.value.push(el);
+          result[el] = handleSheetData(jsonData, el);
+          result[el] = handleCompareTableData(result[el], result['购买明细']);
+        }
+        if (index == 0) {
+          selectedSheet.value = el;
+          tableData.value = result[selectedSheet.value];
+        }
+      }
+      readSheetResult.value = result;
+      console.log('output->result', result);
+      // handleCompareTableData()
+      ElMessage.success("文件导入成功");
+    } catch (error) {
+      console.log('output->error',error);
+      ElMessage.error("文件解析失败: " + error.message);
+    }
+}
+const handleSheetData = (jsonData, sheetName) => {
+  let result = []
+  const tableHeaders = jsonData[0];
+  if(sheetName == '购买明细') {
+    // 处理表格内容（跳过表头）
+    result = jsonData.slice(1).map((row) => {
+      return tableHeaders.reduce((obj, header, index) => {
+        obj[header] = row[index] || "";
+        if(header === '购买数量') {
+          obj[header] = Number(row[index] || 0) / 10;
+        }
+        return obj;
+      }, {});
+    });
+  } else {
+    result = jsonData.slice(1).map((row) => {
+      return tableHeaders.reduce((obj, header, index) => {
+        obj[header] = row[index] || "";
+        return obj;
+      }, {});
+    });
+  }
+  return result
+}
+
+const handleCompareTableData = (list, realBuyTable) => {
+  list.forEach(item => {
+    const realBuyList = realBuyTable.filter(realBuyItem => 
       realBuyItem['城市'] === item['城市'] &&
       realBuyItem['门店名称'] === item['门店名称'] &&
       realBuyItem['商品名称'] === item['商品名称']
@@ -114,6 +145,7 @@ const handleCompareTableData = () => {
       item['购买数量'] = 0;
     }
   });
+  return list
 }
 
 const getCellStyle = ({ row, column, rowIndex, columnIndex }) => {
@@ -132,8 +164,12 @@ const getCellStyle = ({ row, column, rowIndex, columnIndex }) => {
 //   writeFileXLSX(workbook, "data.xlsx");
 // };
 const exportExcel = () => {
-  exportExcelWithExcelJS(tableData.value, '商品销售对比.xlsx');
+  exportExcelWithExcelJS(readSheetResult.value, `商品销售对比${+new Date()}.xlsx`);
 };
+
+const handleSheetChange = (sheetName) => {
+  tableData.value = readSheetResult.value[sheetName];
+}
 
 </script>
 
