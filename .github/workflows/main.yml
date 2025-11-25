@@ -27,7 +27,7 @@ jobs:
           cache: npm        # 启用 npm 缓存，加快安装速度
  
       # 3. 安装依赖（等价于 npm install，但 npm ci 更快、更稳定）
-      - run: npm ci
+      - run: pnpm install
  
       # 4. 构建打包（Vite 会把代码打包到 dist 文件夹）
       - run: npm run build
