@@ -14,7 +14,7 @@
   <el-button type="primary" @click="exportExcel">导出</el-button>
   <el-row :gutter="20">
     <el-col :span="18">
-      <el-table :data="tableData" :cell-style="getCellStyle" border show-summary style="width: 100%">
+      <el-table :data="tableData" max-height="400" :cell-style="getCellStyle" border show-summary style="width: 100%">
         <el-table-column prop="城市" label="城市" width="100" />
         <el-table-column prop="门店名称" label="门店名称"  />
         <el-table-column prop="商品名称" label="商品名称" width="180"/>
