@@ -118,7 +118,7 @@ const handleCompareTableData = () => {
 
 const getCellStyle = ({ row, column, rowIndex, columnIndex }) => {
   if (column.property === '购买数量' && row['购买数量'] != row['店品条数']) {
-    return { backgroundColor: 'red' };
+    return { backgroundColor: 'red' }; 
   }
   return '';
 }
