@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 
-export const exportExcelWithExcelJS = async (data, filename = "data.xlsx") => {
+export const exportExcelWithExcelJS = async (data, errorList, filename = "data.xlsx") => {
   // 创建工作簿
   const workbook = new ExcelJS.Workbook();
   for (const key in data) {
@@ -86,6 +86,54 @@ export const exportExcelWithExcelJS = async (data, filename = "data.xlsx") => {
       });
     }
   }
+  if (errorList.length > 0) {
+    let worksheet = workbook.addWorksheet("错误信息");
+    // 设置表头
+    worksheet.columns = [
+      { header: "城市", key: "城市", width: 15 },
+      { header: "门店名称", key: "门店名称", width: 30 },
+      { header: "多买的品种", key: "多买的品种", width: 40 },
+      { header: "多买数量", key: "多买数量", width: 15 },
+    ];
+    // 添加数据并设置样式
+    errorList.forEach((item, index) => {
+      const row = worksheet.addRow(item);
+      // 如果状态为不及格，整行标红
+      row.eachCell((cell) => {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFFF0000" }, // 红色背景
+        };
+        cell.font = {
+          color: { argb: "FFFFFFFF" }, // 白色字体
+          bold: true,
+        };
+        cell.alignment = {
+          vertical: "middle",
+          horizontal: "center",
+        };
+      });
+    });
+    // 设置表头样式
+    const headerRow = worksheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF366092" }, // 蓝色背景
+      };
+      cell.font = {
+        color: { argb: "FFFFFFFF" }, // 白色字体
+        bold: true,
+      };
+      cell.alignment = {
+        vertical: "middle",
+        horizontal: "center",
+      };
+    });
+  }
+
   // 导出文件
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
